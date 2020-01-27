@@ -21,6 +21,8 @@ interface Props {
     isInfoTextVisible?: (node: Node, level: number) => boolean;
     onFilterChange?: (value: string) => void;
     onNodeSelect?: (selectedNodeIds: Array<string>) => void;
+    valueSetter?: (value: boolean, node: Node) => Node;
+    disableAggregateState?: (node: Node) => boolean;
 }
 
 interface State {
@@ -50,6 +52,7 @@ class MultiLevelCheckboxEditor extends React.Component<Props, State> {
         };
 
         this.findNode = this.findNode.bind(this);
+        this.selectAll = this.selectAll.bind(this);
         this.selectNode = this.selectNode.bind(this);
         this.setNodeValue = this.setNodeValue.bind(this);
         this.onFilterChange = this.onFilterChange.bind(this);
@@ -84,10 +87,11 @@ class MultiLevelCheckboxEditor extends React.Component<Props, State> {
                                         <NodeBox
                                             id={`${level}`}
                                             node={node}
-                                            onSelectAll={this.setNodeValue}
+                                            onSelectAll={this.selectAll}
                                             onNodeClick={this.selectNode.bind(this, level)}
                                             setNodeValue={this.setNodeValue}
                                             levelHeaderLabel={this.props.levelHeaderLabels[level]}
+                                            disableAggregateState={this.props.disableAggregateState}
                                         />
                                     </div>
                                 )}
@@ -146,8 +150,13 @@ class MultiLevelCheckboxEditor extends React.Component<Props, State> {
 
     private setNodeValue(node: Node, value: boolean) {
         const condition = this.getCondition(node);
-        const updatedNodes = this.props.nodes.map(walkTree(this.createSetValueWalker(condition, value)));
+        const valueSetter = this.props.valueSetter || this.setValueRecursively;
+        const updatedNodes = this.props.nodes.map(walkTree(this.createSetValueWalker(condition, value, valueSetter)));
         this.props.onNodesChange(updatedNodes);
+    }
+
+    private selectAll(node: Node, value: boolean) {
+        window.console.log(node, value);
     }
 
     private createSetHighlightWalker(condition: (node: Node) => boolean) {
@@ -163,20 +172,25 @@ class MultiLevelCheckboxEditor extends React.Component<Props, State> {
         };
     }
 
-    private createSetValueWalker(condition: (node: Node) => boolean, value: boolean) {
+    private createSetValueWalker(
+        condition: (node: Node) => boolean,
+        value: boolean,
+        valueSetter: (value: boolean, node: Node) => Node
+    ) {
         return (node: Node) => {
             const nodeWithHighlight = {
                 ...node,
                 isHighlighted: this.isNodeSelected(node),
             };
-            if (condition(nodeWithHighlight)) {
-                return this.setValueRecursively(value, nodeWithHighlight);
+            if (condition(node)) {
+                window.console.log(node);
+                return valueSetter(value, nodeWithHighlight);
             }
             return nodeWithHighlight;
         };
     }
 
-    private setHighlightRecursively(node: Node) {
+    private setHighlightRecursively(node: Node): Node {
         if (hasChildren(node)) {
             node.children = node.children!.map(this.setHighlightRecursively);
         }

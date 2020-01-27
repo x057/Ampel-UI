@@ -11,6 +11,7 @@ interface Props {
     onNodeClick: (node: Node) => void;
     setNodeValue: (node: Node, value: boolean) => void;
     levelHeaderLabel: string;
+    disableAggregateState?: (node: Node) => boolean;
 }
 
 const hasChildren = (node: Node) => Boolean(node.children && node.children.length);
@@ -61,46 +62,60 @@ const isNodeChecked = (node: Node) => {
     return hasChildren(node) && countSelectedChildren(node) === node.children!.length;
 };
 
-const NodeBox: React.FunctionComponent<Props> = (props) => (
-    <div className="node-box" data-qa={`container-${props.levelHeaderLabel}`}>
-        <span className="icon" />
-        <div className="header">
-            <div className="header-label" data-qa={`header-label-${props.id}`}>
-                <Checkbox
-                    id={`select-all-${props.id}`}
-                    value={isNodeChecked(props.node)}
-                    onChange={props.onSelectAll.bind(null, props.node)}
-                    label={props.levelHeaderLabel}
-                />
+window.console.log(isNodeChecked({} as Node));
+
+const NodeBox: React.FunctionComponent<Props> = (props) => {
+    const getTriStateCheckboxState = (node: Node) =>
+        props.disableAggregateState && props.disableAggregateState(node)
+            ? valueToCheckboxState(Boolean(node.value))
+            : getNodeState(node);
+
+    // const isChecked = (node: Node) => {
+    //     return Boolean(node.value) && node.children!.every((n) => n.value === true);
+    // };
+
+    return (
+        <div className="node-box" data-qa={`container-${props.levelHeaderLabel}`}>
+            <span className="icon" />
+            <div className="header">
+                <div className="header-label" data-qa={`header-label-${props.id}`}>
+                    <Checkbox
+                        id={`select-all-${props.id}`}
+                        value={isNodeChecked(props.node)}
+                        onChange={props.onSelectAll.bind(null, props.node)}
+                        label={props.levelHeaderLabel}
+                    />
+                </div>
             </div>
+            <ul className="node-list">
+                {hasChildren(props.node) &&
+                    props.node.children!.map((node) => (
+                        <li
+                            key={node.id}
+                            role="listitem"
+                            data-qa={`node-${node.label}`}
+                            onClick={props.onNodeClick.bind(null, node)}
+                            className={`node-list-item ${node.isHighlighted ? 'highlighted' : ''}`}
+                        >
+                            <div>
+                                <TriStateCheckbox
+                                    id={`node-${node.id}`}
+                                    value={getTriStateCheckboxState(node)}
+                                    onChange={props.setNodeValue.bind(null, node)}
+                                />
+                                {node.label}
+                            </div>
+                            {hasChildren(node) ? (
+                                <span
+                                    className="child-node-count"
+                                    data-qa={`node-label-${node.id}`}
+                                >{`${countCheckedNodes(node)} / ${countAllNodes(node)}`}</span>
+                            ) : null}
+                        </li>
+                    ))}
+            </ul>
         </div>
-        <ul className="node-list">
-            {hasChildren(props.node) &&
-                props.node.children!.map((node) => (
-                    <li
-                        key={node.id}
-                        role="listitem"
-                        data-qa={`node-${node.label}`}
-                        onClick={props.onNodeClick.bind(null, node)}
-                        className={`node-list-item ${node.isHighlighted ? 'highlighted' : ''}`}
-                    >
-                        <div>
-                            <TriStateCheckbox
-                                id={`node-${node.id}`}
-                                value={getNodeState(node)}
-                                onChange={props.setNodeValue.bind(null, node)}
-                            />
-                            {node.label}
-                        </div>
-                        {hasChildren(node) ? (
-                            <span className="child-node-count" data-qa={`node-label-${node.id}`}>{`${countCheckedNodes(
-                                node
-                            )} / ${countAllNodes(node)}`}</span>
-                        ) : null}
-                    </li>
-                ))}
-        </ul>
-    </div>
-);
+    );
+};
 
 export { countNodes, getAggregateState, hasChildren, NodeBox };
